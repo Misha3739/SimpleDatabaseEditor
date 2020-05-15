@@ -28,14 +28,23 @@ namespace DatabaseEditorSample {
 			this._viewModel.CurrentPersonChanged += ViewModel_CurrentPersonChanged;
 			this.gvPersons.SelectionChanged += gvPersons_SelectionChanged;
 		}
+		private void SetButtonBindings() {
+			this.btnRefresh.DataBindings.Clear();
+			this.btnSave.DataBindings.Clear();
+			this.btnAdd.DataBindings.Clear();
+			this.btnDelete.DataBindings.Clear();
+			this.btnRefresh.DataBindings.Add("Enabled", _viewModel, nameof(IPersonViewEditModel.RefreshEnabled));
+			this.btnSave.DataBindings.Add("Enabled", _viewModel, nameof(IPersonViewEditModel.SaveEnabled));
+			this.btnAdd.DataBindings.Add("Enabled", _viewModel, nameof(IPersonViewEditModel.AddEnabled));
+			this.btnDelete.DataBindings.Add("Enabled", _viewModel, nameof(IPersonViewEditModel.DeleteEnabled));
+		}
 
-		private void ViewModel_CurrentPersonChanged(object sender, EventArgs e) {
-			//Populate the textboxes on grid navigation
-			if (this._viewModel.Current != null) {
-				this.tbFirstName.Text = _viewModel.Current.FirstName;
-				this.tbLastName.Text = _viewModel.Current.LastName;
-				this.tbBirthdate.Text = _viewModel.Current.BithtDate.ToString("yyyy-MM-dd");
-			}
+		private void SetEditControlsBindings() {
+			this.tbFirstName.DataBindings.Clear();
+			this.tbLastName.DataBindings.Clear();
+			this.tbFirstName.DataBindings.Add("Text", _viewModel.Current, nameof(Person.FirstName), true, DataSourceUpdateMode.OnPropertyChanged);
+			this.tbLastName.DataBindings.Add("Text", _viewModel.Current, nameof(Person.LastName), true, DataSourceUpdateMode.OnPropertyChanged);
+			this.tbBirthdate.Text = _viewModel.Current.BithtDate.ToString("yyyy-MM-dd");
 		}
 
 		//Please never use constructor to perform the database or api calls. Do it here.
@@ -43,13 +52,24 @@ namespace DatabaseEditorSample {
 		protected override async void OnLoad(EventArgs e) {
 			base.OnLoad(e);
 
-			//Simulate the latency retrieving data from DB (50ms)
+			await LoadDataAsync();
+		}
+
+		private async Task LoadDataAsync() {
 			this.Cursor = Cursors.WaitCursor;
-			//Retreiveing data
-			var persons = await _personRepository.GetAllAsync();
+
+			_viewModel.Persons.Clear();
+		   //Retreiveing data
+		   var persons = await _personRepository.GetAllAsync();
 			//Populate model with data
 			persons.ForEach(p => _viewModel.Persons.Add(p));
-			
+
+			if (!_viewModel.Persons.Any()) {
+				_viewModel.Persons.Add(new Person());
+			}
+			this._viewModel.Current = _viewModel.Persons.First();
+			this.SetButtonBindings();
+
 			this.Cursor = Cursors.Arrow;
 		}
 
@@ -60,6 +80,40 @@ namespace DatabaseEditorSample {
 				var id = (int)row.Cells[0].Value;
 				this._viewModel.Current = this._viewModel.Persons.FirstOrDefault(p => p.Id == id);
 			}
+		}
+
+		private void ViewModel_CurrentPersonChanged(object sender, EventArgs e) {
+			//Populate the textboxes on grid navigation
+			if (this._viewModel.Current != null) {
+				this.SetEditControlsBindings();
+				this.SetButtonBindings();
+			}
+		}
+
+		private async void btnRefresh_Click(object sender, EventArgs e) {
+			await LoadDataAsync();
+		}
+
+		private async void btnSave_Click(object sender, EventArgs e) {
+			await _personRepository.SaveAsync(this._viewModel.Current);
+			await LoadDataAsync();
+		}
+
+		private void btnAdd_Click(object sender, EventArgs e) {
+			this._viewModel.Current = this._viewModel.Persons.AddNew();
+		}
+
+		private async void btnDelete_Click(object sender, EventArgs e) {
+			if (this._viewModel.Current.Id > 0) {
+				await _personRepository.DeleteAsync(this._viewModel.Current);
+			}
+			this._viewModel.Persons.Remove(this._viewModel.Current);
+			this._viewModel.Current = this._viewModel.Persons.FirstOrDefault();
+			this.SetButtonBindings();
+		}
+
+		private void Form_CurrentValueChanged(object sender, EventArgs e) {
+			SetButtonBindings();
 		}
 
 		/// <summary>
