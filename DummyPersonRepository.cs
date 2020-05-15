@@ -26,10 +26,12 @@ namespace DatabaseEditorSample {
 		}
 
 		public async Task<List<Person>> FindAsync(Expression<Func<Person, bool>> predicate) {
+			await Task.Delay(50);
 			return await Task.FromResult(this._persons.AsQueryable().Where(predicate).ToList());
 		}
 
 		public async Task<List<Person>> GetAllAsync() {
+			await Task.Delay(50);
 			return await Task.FromResult(this._persons);
 		}
 
